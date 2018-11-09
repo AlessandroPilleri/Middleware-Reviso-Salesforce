@@ -12,8 +12,8 @@ var obj = {
 var TOKEN_DIR = './';
 
 // Salesforce
-var cid = '********************';
-var cs = '********************';
+var cid = '*************';
+var cs = '*************';
 var cb = 'http://localhost:3000/auth';
 
 var loginUrl = 'https://login.salesforce.com';
@@ -21,8 +21,8 @@ var authUrl = 'https://login.salesforce.com/services/oauth2/authorize';
 var tokenUrl = 'https://login.salesforce.com/services/oauth2/token';
 
 // Reviso
-var secretId = '*************************'
-var appId = '*****************'
+var secretId = '*************'
+var appId = '*************'
 var callback = 'http://localhost:3000/callback'
 
 var revisoUrl = 'https://app.reviso.com/api1/requestaccess.aspx'
@@ -35,6 +35,8 @@ var TOKEN_PATH_S = TOKEN_DIR + 'Salesforce_token.json';
 var TOKEN_PATH_R = TOKEN_DIR + 'reviso_token.txt';
 
 var credentials;
+
+var conn;
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
@@ -79,7 +81,7 @@ app.get('/callback', function (req, res) {
     res.sendStatus(200)
 
     saveRevisoToken(token, TOKEN_PATH_R, function () {
-        setConnection(0)
+        setConnection()
     })
 })
 
@@ -165,18 +167,17 @@ function getRevisoClients(n, callback) {
 
 function formatClients(clients, callback) {
     var objs = []
-    //console.log('--- formatting clients ---')
+    console.log('--- formatting clients ---')
     //console.log(obj)
     clients.collection.forEach(function (d, i) {
         var field = {}
         //console.log(d)
-        Object.keys(d).forEach(function (k) {
+        Object.keys(obj).forEach(function (k) {
             //console.log('obj[k] = ' + obj[k])
-            if (obj[k] != undefined) {
+            if (d[k] != undefined) {
                 field[obj[k]] = d[k]
             }
         })
-        //console.log('inserimento di:')
         //console.log(field)
         objs.push(field)
 
@@ -208,11 +209,73 @@ function saveRevisoToken(token, path, callback) {
     callback()
 }
 
-function setConnection(i) {
+function setConnection() {
+    var i = 0;
+    conn = new jsforce.Connection({
+        oauth2: {
+            loginUrl: loginUrl,
+            clientId: cid,
+            clientSecret: cs,
+            redirectUri: cb
+        },
+        instanceUrl: credentials.instance_url,
+        accessToken: credentials.access_token,
+        refreshToken: credentials.refresh_token,
+        maxRequest: 200
+    });
+
+    conn.on("refresh", function (accessToken, res) {
+        console.log('token refresh')
+        credentials.access_token = accessToken;
+    })
+
+    conn.oauth2.refreshToken(credentials.refresh_token)
+                .then(function (resp) {
+                    credentials.access_token = resp.access_token;
+                    doUpsert(i)
+                })
+                .catch(function (err) {
+                    console.log('refresh error...')
+                    console.log(err)
+                })
+}
+
+function doUpsert(i) {
     getRevisoClients(i, function (body) {
         var clients = JSON.parse(body)
-        //console.log(clients.pagination.results)
-        //console.log('------ ' + i + ' ------')
+        formatClients(clients, function (objs) {
+            console.log('objs = ' + objs.length)
+            console.log('total = ' + clients.pagination.results)
+            console.log('upserting')
+            conn.sobject("Chart_of_accounts__c").upsert(objs, 'Account_Number__c', function (err, rets) {
+                console.log('end upserting')
+                if (err) {
+                    console.log(err)
+                }
+                for (var j = 0; j < rets.length; j++) {
+                    console.log(rets[j])
+                }
+                if (rets.length < 200) {
+                    console.log(rets)
+                }
+                console.log('i = ' + i)
+                if ((i + 1) * 200 >= clients.pagination.results) {
+                    console.log('exit')
+                    process.exit(0)
+                } else {
+                    i++
+                    doUpsert(i)
+                }
+            })
+        })
+    })
+}
+
+/*function setConnection(i) {
+    getRevisoClients(i, function (body) {
+        var clients = JSON.parse(body)
+        console.log(clients.pagination.results)
+        console.log('------ ' + i + ' ------')
         formatClients(clients, function (objs) {
             var conn = new jsforce.Connection({
                 oauth2: {
@@ -264,20 +327,20 @@ function doUpsert(objs, conn, callback) {
         o = objs.slice(0, 200)
         objs.splice(0, 200)
         console.log('upserting')
-        //console.log(o)
-        conn.sobject("Chart_of_accounts__c").upsert(o, 'Account_Number__c', function (err, rets) {
-            console.log('finish upserting')
+        console.log(o)
+        conn.sobject("Account").upsert(o, 'Codice_Cliente__c', function (err, rets) {
+            console.log('ciao')
             if (err) {
                 console.log(err)
                 callback(err)
             }
             for (var i = 0; i < rets.length; i++) {
-                //console.log(rets[i])
+                console.log(rets[i])
             }
             if (rets.length < 200) {
-                //console.log(rets)
+                console.log(rets)
             }
         })
     }
     callback(null)
-}
+}*/

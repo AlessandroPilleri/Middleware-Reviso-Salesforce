@@ -13,8 +13,8 @@ var obj = {
 var TOKEN_DIR = './';
 
 // Salesforce
-var cid = '**************************';
-var cs = '**************************';
+var cid = '*************';
+var cs = '*************';
 var cb = 'http://localhost:3000/auth';
 
 var loginUrl = 'https://login.salesforce.com';
@@ -22,8 +22,8 @@ var authUrl = 'https://login.salesforce.com/services/oauth2/authorize';
 var tokenUrl = 'https://login.salesforce.com/services/oauth2/token';
 
 // Reviso
-var secretId = '**************************'
-var appId = '**************************'
+var secretId = '*************'
+var appId = '*************'
 var callback = 'http://localhost:3000/callback'
 
 var revisoUrl = 'https://app.reviso.com/api1/requestaccess.aspx'
@@ -80,7 +80,7 @@ app.get('/callback', function (req, res) {
     res.sendStatus(200)
 
     saveRevisoToken(token, TOKEN_PATH_R, function () {
-        setConnection(0)
+        setConnection()
     })
 })
 
@@ -209,7 +209,67 @@ function saveRevisoToken(token, path, callback) {
     callback()
 }
 
-function setConnection(i) {
+function setConnection() {
+    var i = 0;
+    var conn = new jsforce.Connection({
+        oauth2: {
+            loginUrl: loginUrl,
+            clientId: cid,
+            clientSecret: cs,
+            redirectUri: cb
+        },
+        instanceUrl: credentials.instance_url,
+        accessToken: credentials.access_token,
+        refreshToken: credentials.refresh_token,
+        maxRequest: 200
+    });
+
+    conn.on("refresh", function (accessToken, res) {
+        console.log('token refresh')
+        credentials.access_token = accessToken;
+    })
+
+    conn.oauth2.refreshToken(credentials.refresh_token)
+                .then(function (resp) {
+                    credentials.access_token = resp.access_token;
+                    doUpsert(i, conn)
+                })
+                .catch(function (err) {
+                    console.log('refresh error...')
+                    console.log(err)
+                })
+}
+
+function doUpsert(i, conn) {
+    getRevisoClients(i, function (body) {
+        var clients = JSON.parse(body)
+        formatClients(clients, function (objs) {
+            console.log('objs = ' + objs.length)
+            console.log('upserting')
+            conn.sobject("Account").upsert(objs, 'Codice_Cliente__c', function (err, rets) {
+                console.log('end upserting')
+                if (err) {
+                    console.log(err)
+                }
+                for (var i = 0; i < rets.length; i++) {
+                    console.log(rets[i])
+                }
+                if (rets.length < 200) {
+                    console.log(rets)
+                }
+                if ((i + 1) * 200 >= clients.pagination.results - 1) {
+                    console.log('exit')
+                    // process.exit(0)
+                } else {
+                    i++
+                    doUpsert(i, conn)
+                }
+            })
+        })
+    })
+}
+
+/*function setConnection(i) {
     getRevisoClients(i, function (body) {
         var clients = JSON.parse(body)
         console.log(clients.pagination.results)
@@ -281,4 +341,4 @@ function doUpsert(objs, conn, callback) {
         })
     }
     callback(null)
-}
+}*/

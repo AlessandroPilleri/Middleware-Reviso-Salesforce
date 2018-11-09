@@ -12,8 +12,8 @@ var obj = {
 var TOKEN_DIR = './';
 
 // Salesforce
-var cid = '**************************';
-var cs = '**************************';
+var cid = '*************';
+var cs = '*************';
 var cb = 'http://localhost:3000/auth';
 
 var loginUrl = 'https://login.salesforce.com';
@@ -21,8 +21,8 @@ var authUrl = 'https://login.salesforce.com/services/oauth2/authorize';
 var tokenUrl = 'https://login.salesforce.com/services/oauth2/token';
 
 // Reviso
-var secretId = '**************************'
-var appId = '**************************'
+var secretId = '*************'
+var appId = '*************'
 var callback = 'http://localhost:3000/callback'
 
 var revisoUrl = 'https://app.reviso.com/api1/requestaccess.aspx'
