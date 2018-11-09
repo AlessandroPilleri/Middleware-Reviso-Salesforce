@@ -5,9 +5,6 @@ var request = require('request')
 var jsforce = require('jsforce');
 
 var obj = {
-    'customerNumber': 'Codice_Cliente__c',
-    'name': 'Name',
-    'city': 'BillingCity'
 }
 
 var TOKEN_DIR = './';
@@ -149,7 +146,7 @@ function doToken(baseurl, code) {
 function getRevisoClients(n, callback) {
     var token = fs.readFileSync(TOKEN_PATH_R)
     var options = {
-        url: 'https://rest.reviso.com/customers?skippages=' + n + '&pagesize=200',
+        url: 'https://rest.reviso.com/invoices?skippages=' + n + '&pagesize=200',
         headers: {
             'X-AppSecretToken': secretId,
             'X-AgreementGrantToken': token,
